@@ -2,28 +2,51 @@ import React, { useState } from 'react';
 import { LoginForm } from './components/LoginForm';
 import { SignupForm } from './components/SignupForm';
 import { MainScreen } from './components/MainScreen';
+import { UserProfile } from './types';
 
 export const App: React.FC = () => {
   const [view, setView] = useState<'login' | 'signup' | 'main'>('login');
-  const [currentUser, setCurrentUser] = useState<string>('');
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    username: 'user',
+    displayName: 'User',
+    avatarUrl: '',
+    bannerUrl: '',
+    pronouns: '',
+    bio: '',
+  });
 
   const handleLoginSuccess = (identifier: string) => {
-    setCurrentUser(identifier.trim() || 'User');
+    const clean = identifier.trim() || 'user';
+    setUserProfile((prev) => ({
+      ...prev,
+      username: clean,
+      displayName: clean,
+    }));
     setView('main');
   };
 
   const handleSignupSuccess = (username: string) => {
-    setCurrentUser(username.trim() || 'User');
+    const clean = username.trim() || 'user';
+    setUserProfile((prev) => ({
+      ...prev,
+      username: clean,
+      displayName: clean,
+    }));
     setView('main');
   };
 
   const handleLogout = () => {
-    setCurrentUser('');
     setView('login');
   };
 
   if (view === 'main') {
-    return <MainScreen username={currentUser} onLogout={handleLogout} />;
+    return (
+      <MainScreen
+        userProfile={userProfile}
+        onUpdateProfile={setUserProfile}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   return (

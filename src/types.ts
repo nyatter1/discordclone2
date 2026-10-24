@@ -1,3 +1,5 @@
+export type ChannelType = 'text' | 'voice';
+
 export interface UserProfile {
   username: string;
   displayName: string;
@@ -5,6 +7,7 @@ export interface UserProfile {
   bannerUrl: string;
   pronouns: string;
   bio: string;
+  customNote?: string;
 }
 
 export interface ChatMessage {
@@ -18,6 +21,7 @@ export interface ChatMessage {
 export interface Channel {
   id: string;
   name: string;
+  type: ChannelType;
   messages: ChatMessage[];
 }
 
@@ -26,4 +30,11 @@ export interface Server {
   name: string;
   iconUrl: string;
   channels: Channel[];
+}
+
+export interface VoiceConnectionState {
+  serverId: string;
+  serverName: string;
+  channelId: string;
+  channelName: string;
 }

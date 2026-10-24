@@ -49,6 +49,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [isPinnedPanelOpen, setIsPinnedPanelOpen] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+  const [isJoinServerOpen, setIsJoinServerOpen] = useState(false);
+  const [joinInviteInput, setJoinInviteInput] = useState('');
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<UserProfile | null>(null);
 
   // Reaction target message
@@ -77,14 +79,113 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   // Self DM Messages & Notes
-  const [selfDmMessages, setSelfDmMessages] = useState<ChatMessage[]>([]);
-  const [selfDmNote, setSelfDmNote] = useState('');
+  const [selfDmMessages, setSelfDmMessages] = useState<ChatMessage[]>(() => {
+    const saved = localStorage.getItem('discord_self_dm_messages');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selfDmNote, setSelfDmNote] = useState(() => {
+    return localStorage.getItem('discord_self_dm_note') || '';
+  });
 
-  // Servers List
-  const [servers, setServers] = useState<Server[]>([]);
+  // Servers List (persisted in localStorage)
+  const [servers, setServers] = useState<Server[]>(() => {
+    const saved = localStorage.getItem('discord_saved_servers');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save to localStorage
+  useEffect(() => {
+    localStorage.setItem('discord_saved_servers', JSON.stringify(servers));
+  }, [servers]);
+
+  useEffect(() => {
+    localStorage.setItem('discord_self_dm_messages', JSON.stringify(selfDmMessages));
+  }, [selfDmMessages]);
+
+  useEffect(() => {
+    localStorage.setItem('discord_self_dm_note', selfDmNote);
+  }, [selfDmNote]);
 
   // Dragging channel state
   const [draggedChannelId, setDraggedChannelId] = useState<string | null>(null);
+
+  // Handle URL Invite on load or change (e.g. https://discordclone2.onrender.com/invite/[invite-code])
+  useEffect(() => {
+    const checkInviteUrl = () => {
+      const href = window.location.href;
+      const match = href.match(/\/invite\/([a-zA-Z0-9]+)/);
+      if (match && match[1]) {
+        const code = match[1];
+        handleJoinInviteCode(code);
+      }
+    };
+    checkInviteUrl();
+  }, []);
+
+  const handleJoinInviteCode = (code: string) => {
+    const cleanCode = code.trim().replace(/^.*\/invite\//, '');
+    const found = servers.find((s) => s.invites?.some((inv) => inv.code === cleanCode));
+    if (found) {
+      setActiveView(found.id);
+      if (found.channels.length > 0) {
+        setActiveChannelId(found.channels[0].id);
+      }
+      setIsJoinServerOpen(false);
+      return;
+    }
+
+    // If invite exists in local storage or newly discovered, create/join the server:
+    const newServerId = 'server-joined-' + Date.now();
+    const joinedServer: Server = {
+      id: newServerId,
+      name: `Server ${cleanCode.slice(0, 4).toUpperCase()}`,
+      iconUrl: '',
+      channels: [
+        {
+          id: 'channel-' + Date.now(),
+          name: 'general',
+          type: 'text',
+          messages: [],
+        },
+      ],
+      categories: [
+        { id: 'cat-text', name: 'TEXT CHANNELS', collapsed: false },
+        { id: 'cat-voice', name: 'VOICE CHANNELS', collapsed: false },
+      ],
+      roles: [
+        {
+          id: 'role-member',
+          name: 'Member',
+          color: '#3498db',
+          position: 1,
+          permissions: {
+            viewChannels: true,
+            sendMessages: true,
+            manageChannels: false,
+            manageServer: false,
+            mentionEveryone: false,
+          },
+        },
+      ],
+      emojis: [],
+      stickers: [],
+      invites: [
+        {
+          id: 'inv-' + Date.now(),
+          code: cleanCode,
+          creator: 'System',
+          createdAt: new Date().toLocaleDateString(),
+          expiresAt: 'Never',
+          maxUses: 0,
+          uses: 1,
+        },
+      ],
+    };
+    setServers((prev) => [...prev, joinedServer]);
+    setActiveView(joinedServer.id);
+    setActiveChannelId(joinedServer.channels[0].id);
+    setIsJoinServerOpen(false);
+  };
 
   // Active Server & Channel Calculation
   const activeServer = servers.find((s) => s.id === activeView);
@@ -235,6 +336,25 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       categories: activeServer.categories.map((c) =>
         c.id === catId ? { ...c, collapsed: !c.collapsed } : c
       ),
+    });
+  };
+
+  // Move channel up / down
+  const handleMoveChannel = (channelId: string, direction: 'up' | 'down') => {
+    if (!activeServer) return;
+    const channels = [...activeServer.channels];
+    const index = channels.findIndex((c) => c.id === channelId);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= channels.length) return;
+
+    const [moved] = channels.splice(index, 1);
+    channels.splice(targetIndex, 0, moved);
+
+    handleUpdateServer({
+      ...activeServer,
+      channels,
     });
   };
 
@@ -418,7 +538,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       let updatedReactions;
       if (existing) {
         if (existing.users.includes(username)) {
-          // Remove reaction
           const remainingUsers = existing.users.filter((u) => u !== username);
           if (remainingUsers.length === 0) {
             updatedReactions = current.filter((r) => r.emoji !== emoji);
@@ -430,7 +549,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             );
           }
         } else {
-          // Add to existing
           updatedReactions = current.map((r) =>
             r.emoji === emoji
               ? { ...r, count: r.count + 1, users: [...r.users, username] }
@@ -438,7 +556,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           );
         }
       } else {
-        // New reaction
         updatedReactions = [...current, { emoji, count: 1, users: [username] }];
       }
 
@@ -476,7 +593,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       id: 'msg-' + Date.now(),
       sender: userProfile.displayName || userProfile.username || 'User',
       senderAvatar: userProfile.avatarUrl,
-      text: `[Sticker: ${sticker.name}]`,
+      text: '',
+      stickerUrl: sticker.url,
+      stickerName: sticker.name,
       timestamp: new Date().toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
@@ -532,6 +651,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
   const pinnedMessages = currentMessages.filter((m) => m.isPinned);
 
+  // Highest role calculation for member display
+  const userAssignedRoleIds = userProfile.roles || [];
+  const serverRoles = activeServer?.roles || [];
+  const userRoles = serverRoles
+    .filter((r) => userAssignedRoleIds.includes(r.id))
+    .sort((a, b) => a.position - b.position);
+  const highestRole = userRoles[0];
+
   // Group channels by category
   const categories = activeServer?.categories || [];
   const uncategorizedChannels =
@@ -574,11 +701,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 }}
                 title={server.name}
               >
-                <img
-                  src={server.iconUrl}
-                  alt={server.name}
-                  className="server-avatar-img"
-                />
+                {server.iconUrl ? (
+                  <img
+                    src={server.iconUrl}
+                    alt={server.name}
+                    className="server-avatar-img"
+                  />
+                ) : (
+                  <span className="server-text-badge">
+                    {server.name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
               </button>
             </div>
           ))}
@@ -593,6 +726,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Join with Invite Link Button */}
+          <div className="server-icon-wrapper">
+            <button
+              type="button"
+              className="create-server-trigger-btn join-btn"
+              onClick={() => setIsJoinServerOpen(true)}
+              title="Join a Server with Invite"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z" />
               </svg>
             </button>
           </div>
@@ -744,7 +891,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               )}
             </header>
 
-            {/* Channels & Categories List */}
+            {/* Channels & Categories List with Reordering */}
             <div className="channels-content-container">
               {/* Uncategorized channels */}
               {uncategorizedChannels.map((ch) => (
@@ -753,12 +900,57 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   className={`channel-item-row ${
                     activeChannelId === ch.id ? 'active' : ''
                   }`}
+                  draggable
+                  onDragStart={() => setDraggedChannelId(ch.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (!draggedChannelId || draggedChannelId === ch.id) return;
+                    const sourceIdx = activeServer.channels.findIndex(
+                      (c) => c.id === draggedChannelId
+                    );
+                    const targetIdx = activeServer.channels.findIndex(
+                      (c) => c.id === ch.id
+                    );
+                    if (sourceIdx !== -1 && targetIdx !== -1) {
+                      const updated = [...activeServer.channels];
+                      const [removed] = updated.splice(sourceIdx, 1);
+                      updated.splice(targetIdx, 0, removed);
+                      handleUpdateServer({ ...activeServer, channels: updated });
+                    }
+                    setDraggedChannelId(null);
+                  }}
                   onClick={() => handleChannelClick(ch.id, ch.type, ch.name)}
                 >
                   <span className="channel-hash">
-                    {ch.type === 'voice' ? '🔊' : '#'}
+                    {ch.type === 'voice' ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                      </svg>
+                    ) : (
+                      '#'
+                    )}
                   </span>
                   <span className="channel-name-label">{ch.name}</span>
+
+                  {/* Channel Move Up/Down Controls */}
+                  <div className="channel-reorder-buttons" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="channel-order-btn"
+                      onClick={() => handleMoveChannel(ch.id, 'up')}
+                      title="Move Channel Up"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="channel-order-btn"
+                      onClick={() => handleMoveChannel(ch.id, 'down')}
+                      title="Move Channel Down"
+                    >
+                      ▼
+                    </button>
+                  </div>
                 </div>
               ))}
 
@@ -833,17 +1025,47 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             onClick={() => handleChannelClick(ch.id, ch.type, ch.name)}
                           >
                             <span className="channel-hash">
-                              {ch.type === 'voice' ? '🔊' : '#'}
+                              {ch.type === 'voice' ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                                </svg>
+                              ) : (
+                                '#'
+                              )}
                             </span>
                             <span className="channel-name-label">{ch.name}</span>
+
                             {ch.isMuted && (
                               <span className="channel-muted-indicator" title="Muted">
-                                🔇
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                                </svg>
                               </span>
                             )}
+
                             {voiceConnection?.channelId === ch.id && (
                               <span className="voice-connected-dot" />
                             )}
+
+                            {/* Move Up/Down Controls */}
+                            <div className="channel-reorder-buttons" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="channel-order-btn"
+                                onClick={() => handleMoveChannel(ch.id, 'up')}
+                                title="Move Channel Up"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                className="channel-order-btn"
+                                onClick={() => handleMoveChannel(ch.id, 'down')}
+                                title="Move Channel Down"
+                              >
+                                ▼
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -954,11 +1176,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         <header className="chat-header">
           <div className="chat-header-title">
             <span className="hash-symbol">
-              {activeView === 'dm'
-                ? '@'
-                : activeChannel?.type === 'voice'
-                ? '🔊'
-                : '#'}
+              {activeView === 'dm' ? (
+                '@'
+              ) : activeChannel?.type === 'voice' ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                </svg>
+              ) : (
+                '#'
+              )}
             </span>
             <span className="channel-title-text">
               {activeView === 'dm'
@@ -975,7 +1201,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               onClick={() => setIsPinnedPanelOpen(!isPinnedPanelOpen)}
               title="Pinned Messages"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
               </svg>
             </button>
@@ -988,7 +1214,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onClick={() => setIsNotifModalOpen(true)}
                 title="Notification Settings"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
                 </svg>
               </button>
@@ -1099,6 +1325,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             <span
                               className="message-author clickable"
                               onClick={() => setSelectedUserForProfile(userProfile)}
+                              style={highestRole ? { color: highestRole.color } : {}}
                             >
                               {msg.sender}
                             </span>
@@ -1109,11 +1336,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               )}
                               {msg.isPinned && (
                                 <span className="pinned-badge" title="Pinned">
-                                  📌
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+                                  </svg>
                                 </span>
                               )}
                             </span>
                           </div>
+
+                          {/* Render Sticker if attached */}
+                          {msg.stickerUrl && (
+                            <div className="message-sticker-box">
+                              <img
+                                src={msg.stickerUrl}
+                                alt={msg.stickerName || 'Sticker'}
+                                className="chat-sticker-img"
+                              />
+                            </div>
+                          )}
 
                           {/* Message Content or Inline Edit Input */}
                           {editingMessageId === msg.id ? (
@@ -1149,9 +1389,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               </div>
                             </div>
                           ) : (
-                            <div className="message-content-text">
-                              {renderMessageText(msg.text)}
-                            </div>
+                            msg.text && (
+                              <div className="message-content-text">
+                                {renderMessageText(msg.text)}
+                              </div>
+                            )
                           )}
 
                           {/* Reactions Display */}
@@ -1179,9 +1421,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           )}
                         </div>
 
-                        {/* Hover Quick Action Buttons */}
+                        {/* Hover Quick Action Buttons with Proper SVGs */}
                         <div className="message-hover-actions">
-                          {/* React */}
+                          {/* React SVG */}
                           <button
                             type="button"
                             className="hover-action-btn"
@@ -1191,30 +1433,36 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             }}
                             title="Add Reaction"
                           >
-                            😀
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+                            </svg>
                           </button>
 
-                          {/* Reply */}
+                          {/* Reply SVG */}
                           <button
                             type="button"
                             className="hover-action-btn"
                             onClick={() => setReplyingTo(msg)}
                             title="Reply"
                           >
-                            ↩
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z" />
+                            </svg>
                           </button>
 
-                          {/* Pin */}
+                          {/* Pin SVG */}
                           <button
                             type="button"
                             className="hover-action-btn"
                             onClick={() => handleTogglePin(msg.id)}
                             title={msg.isPinned ? 'Unpin Message' : 'Pin Message'}
                           >
-                            📌
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+                            </svg>
                           </button>
 
-                          {/* Edit (if sender) */}
+                          {/* Edit SVG */}
                           <button
                             type="button"
                             className="hover-action-btn"
@@ -1224,17 +1472,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             }}
                             title="Edit Message"
                           >
-                            ✏️
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                            </svg>
                           </button>
 
-                          {/* Delete (if sender) */}
+                          {/* Delete SVG */}
                           <button
                             type="button"
                             className="hover-action-btn"
                             onClick={() => handleDeleteMessage(msg.id)}
                             title="Delete Message"
                           >
-                            🗑️
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -1285,7 +1537,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   onChange={handleInputChange}
                 />
 
-                {/* Emoji / Sticker button */}
+                {/* SVG Smiley Button */}
                 <button
                   type="button"
                   className="chat-emoji-trigger-btn"
@@ -1295,7 +1547,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   }}
                   title="Insert Emoji"
                 >
-                  😀
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+                  </svg>
                 </button>
               </div>
 
@@ -1350,7 +1604,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               )}
               {userProfile.customStatusText && (
                 <div className="popover-custom-status">
-                  💬 {userProfile.customStatusText}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }}>
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                  </svg>
+                  {userProfile.customStatusText}
                 </div>
               )}
 
@@ -1375,10 +1632,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </div>
           </div>
         ) : (
-          /* Server Members List */
+          /* Server Members List with Roles correctly displayed */
           <>
             <header className="members-header">
-              <span className="members-header-label">ONLINE — 1</span>
+              <span className="members-header-label">
+                {highestRole ? `${highestRole.name.toUpperCase()} — 1` : 'ONLINE — 1'}
+              </span>
             </header>
             <div className="members-content-container">
               <div
@@ -1401,12 +1660,31 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   />
                 </div>
                 <div className="member-name-box">
-                  <span className="member-name">
+                  <span
+                    className="member-name"
+                    style={highestRole ? { color: highestRole.color } : {}}
+                  >
                     {userProfile.displayName || userProfile.username || 'User'}
                   </span>
-                  <span className="member-subtext">
-                    @{userProfile.username || 'user'}
-                  </span>
+                  {highestRole ? (
+                    <span
+                      className="member-role-badge"
+                      style={{
+                        borderColor: highestRole.color,
+                        color: highestRole.color,
+                      }}
+                    >
+                      <span
+                        className="role-color-dot"
+                        style={{ backgroundColor: highestRole.color }}
+                      />
+                      {highestRole.name}
+                    </span>
+                  ) : (
+                    <span className="member-subtext">
+                      @{userProfile.username || 'user'}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1440,6 +1718,59 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         onClose={() => setIsCreateServerOpen(false)}
         onCreateServer={handleCreateServer}
       />
+
+      {/* Join Server with Invite Modal */}
+      {isJoinServerOpen && (
+        <div className="modal-backdrop" onClick={() => setIsJoinServerOpen(false)}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h2 className="modal-title">Join a Server</h2>
+              <p className="modal-subtitle">
+                Enter an invite below to join an existing server.
+              </p>
+            </header>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (joinInviteInput.trim()) {
+                  handleJoinInviteCode(joinInviteInput.trim());
+                }
+              }}
+              className="modal-form"
+            >
+              <div className="form-group">
+                <label className="form-label">INVITE LINK</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={joinInviteInput}
+                  onChange={(e) => setJoinInviteInput(e.target.value)}
+                  required
+                />
+                <span className="invite-example-hint">
+                  INVITES SHOULD LOOK LIKE: https://discordclone2.onrender.com/invite/abc1234
+                </span>
+              </div>
+              <footer className="modal-footer">
+                <button
+                  type="button"
+                  className="modal-cancel-btn"
+                  onClick={() => setIsJoinServerOpen(false)}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="modal-submit-btn"
+                  disabled={!joinInviteInput.trim()}
+                >
+                  Join Server
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create Channel Modal */}
       <CreateChannelModal

@@ -3322,3 +3322,72 @@ html, body {
     padding: 24px 20px;
   }
 }
+
+/* Channel Reorder Buttons (Move Up/Down) */
+.channel-reorder-buttons {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.channel-item-row:hover .channel-reorder-buttons {
+  display: flex;
+}
+
+.channel-order-btn {
+  background: none;
+  border: none;
+  color: #72767d;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.channel-order-btn:hover {
+  background-color: #2b2d31;
+  color: #dcddde;
+}
+
+/* Chat Sticker Box */
+.message-sticker-box {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.chat-sticker-img {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+/* Member Role Badge in Member List */
+.member-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-top: 2px;
+  width: fit-content;
+}
+
+.invite-example-hint {
+  font-size: 11px;
+  color: #72767d;
+  margin-top: 6px;
+  display: block;
+}
+
+.server-text-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: #dcddde;
+}

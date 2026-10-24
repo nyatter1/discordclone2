@@ -75,6 +75,8 @@ export interface ChatMessage {
   senderAvatar: string;
   text: string;
   timestamp: string;
+  stickerUrl?: string;
+  stickerName?: string;
   replyTo?: MessageReplyPreview;
   isEdited?: boolean;
   isPinned?: boolean;

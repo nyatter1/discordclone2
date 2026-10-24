@@ -30,7 +30,8 @@ export const InviteModal: React.FC<InviteModalProps> = ({
 
   if (!isOpen) return null;
 
-  const fullUrl = `https://discord.gg/${inviteCode}`;
+  // Exact required format: https://discordclone2.onrender.com/invite/[invite-code]
+  const fullUrl = `https://discordclone2.onrender.com/invite/${inviteCode}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullUrl).catch(() => {});

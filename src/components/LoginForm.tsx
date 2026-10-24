@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 
 interface LoginFormProps {
   onToggleToRegister: () => void;
+  onLoginSuccess: (identifier: string) => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onToggleToRegister }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({
+  onToggleToRegister,
+  onLoginSuccess,
+}) => {
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    onLoginSuccess(emailOrUsername);
   };
 
   return (

@@ -12,9 +12,18 @@ html, body {
   font-family: "Whitney", "Helvetica Neue", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
 }
 
 #root {
+  width: 100%;
+  height: 100%;
+}
+
+/* -------------------------------------------------------------
+   AUTH PAGE (LOGIN & SIGNUP)
+------------------------------------------------------------- */
+.auth-page-container {
   width: 100%;
   min-height: 100vh;
   display: flex;
@@ -193,7 +202,374 @@ html, body {
   color: #dcddde;
 }
 
+/* -------------------------------------------------------------
+   MAIN SCREEN (CLASSIC DISCORD LAYOUT)
+------------------------------------------------------------- */
+.discord-app-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #000000;
+}
+
+/* 1. Far Left Server Sidebar (72px) */
+.server-sidebar {
+  width: 72px;
+  min-width: 72px;
+  height: 100%;
+  background-color: #0a0a0c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+  border-right: 1px solid #141517;
+  user-select: none;
+}
+
+.infinity-btn-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 48px;
+}
+
+.infinity-btn-wrapper::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 4px;
+  height: 40px;
+  background-color: #8e9297;
+  border-radius: 0 4px 4px 0;
+}
+
+.infinity-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background-color: #1e1f23;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease-in-out;
+}
+
+.infinity-button:hover {
+  background-color: #2b2d31;
+}
+
+.infinity-symbol {
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 500;
+  display: inline-block;
+  transform: translateY(-1px);
+}
+
+.server-separator {
+  width: 32px;
+  height: 2px;
+  background-color: #1a1b1e;
+  margin: 10px 0;
+  border-radius: 1px;
+}
+
+.server-list-empty {
+  flex: 1;
+  width: 100%;
+}
+
+/* 2. Channel / DM List Sidebar (240px) */
+.channels-sidebar {
+  width: 240px;
+  min-width: 240px;
+  height: 100%;
+  background-color: #121316;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #18191d;
+}
+
+.channels-header {
+  height: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid #18191d;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.channels-search-bar {
+  width: 100%;
+  height: 28px;
+  background-color: #0c0d0f;
+  border-radius: 4px;
+  border: 1px solid #1e2025;
+}
+
+.channels-content-empty {
+  flex: 1;
+  background-color: #121316;
+}
+
+/* User Profile Footer */
+.user-profile-bar {
+  height: 52px;
+  min-height: 52px;
+  background-color: #0d0e10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  border-top: 1px solid #16171a;
+  position: relative;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.user-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #23252a;
+  flex-shrink: 0;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #c4c6cb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 16px;
+}
+
+.user-tag {
+  font-size: 12px;
+  color: #72767d;
+  line-height: 14px;
+}
+
+.user-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.control-icon-btn {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: #8e9297;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.control-icon-btn:hover {
+  background-color: #1c1d21;
+  color: #c4c6cb;
+}
+
+.control-icon-btn.muted,
+.control-icon-btn.deafened {
+  color: #555861;
+}
+
+.settings-wrapper {
+  position: relative;
+}
+
+.settings-popout {
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  background-color: #141518;
+  border: 1px solid #23252a;
+  border-radius: 4px;
+  padding: 6px;
+  min-width: 120px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+
+.popout-action-button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #8e9297;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.popout-action-button:hover {
+  background-color: #23252a;
+  color: #c4c6cb;
+}
+
+/* 3. Main Center Chat Area */
+.main-chat-container {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #16171a;
+  min-width: 0;
+}
+
+.chat-header {
+  height: 48px;
+  min-height: 48px;
+  border-bottom: 1px solid #1c1d21;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.chat-header-title {
+  display: flex;
+  align-items: center;
+}
+
+.hash-symbol {
+  font-size: 24px;
+  font-weight: 700;
+  color: #62656d;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-action-icon {
+  width: 20px;
+  height: 20px;
+  background-color: #23252a;
+  border-radius: 3px;
+}
+
+.header-search-bar {
+  width: 144px;
+  height: 24px;
+  background-color: #0c0d0f;
+  border-radius: 4px;
+  border: 1px solid #1e2025;
+}
+
+.chat-messages-empty {
+  flex: 1;
+  width: 100%;
+  background-color: #16171a;
+}
+
+/* Bottom Chat Input Form */
+.chat-input-bar-container {
+  padding: 0 16px 24px 16px;
+  background-color: #16171a;
+}
+
+.chat-input-wrapper {
+  height: 44px;
+  background-color: #1e1f23;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+  border: 1px solid #282a2f;
+}
+
+.chat-attach-btn {
+  background: none;
+  border: none;
+  color: #72767d;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.chat-attach-btn:hover {
+  color: #a0a2a7;
+}
+
+.chat-text-input {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #dcddde;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+/* 4. Right Member List Sidebar (240px) */
+.members-sidebar {
+  width: 240px;
+  min-width: 240px;
+  height: 100%;
+  background-color: #121316;
+  border-left: 1px solid #18191d;
+  display: flex;
+  flex-direction: column;
+}
+
+.members-header {
+  height: 48px;
+  min-height: 48px;
+  border-bottom: 1px solid #18191d;
+}
+
+.members-content-empty {
+  flex: 1;
+  background-color: #121316;
+}
+
+@media (max-width: 860px) {
+  .members-sidebar {
+    display: none;
+  }
+}
+
 @media (max-width: 520px) {
+  .channels-sidebar {
+    display: none;
+  }
   .auth-card {
     padding: 24px 20px;
   }

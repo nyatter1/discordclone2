@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 interface SignupFormProps {
   onToggleToLogin: () => void;
+  onSignupSuccess: (username: string) => void;
 }
 
 const MONTHS = [
@@ -24,7 +25,10 @@ const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const currentYear = 2024;
 const YEARS = Array.from({ length: 100 }, (_, i) => currentYear - i);
 
-export const SignupForm: React.FC<SignupFormProps> = ({ onToggleToLogin }) => {
+export const SignupForm: React.FC<SignupFormProps> = ({
+  onToggleToLogin,
+  onSignupSuccess,
+}) => {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -34,6 +38,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onToggleToLogin }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    onSignupSuccess(username);
   };
 
   return (

@@ -69,6 +69,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
 
   const handleSave = () => {
     onSaveProfile({
+      ...profile,
       displayName: displayName.trim() || 'User',
       username: username.trim() || 'user',
       pronouns,

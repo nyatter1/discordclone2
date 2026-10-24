@@ -13,6 +13,8 @@ export const App: React.FC = () => {
     bannerUrl: '',
     pronouns: '',
     bio: '',
+    status: 'online',
+    customStatusText: '',
   });
 
   const handleLoginSuccess = (identifier: string) => {
